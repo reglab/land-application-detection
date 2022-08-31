@@ -6,6 +6,8 @@ Near Real Time: Land Application under the Clean Water Act](https://arxiv.org/pd
 
 Our experiments and analysis were run in Google Colab. We provide the relevant code here as jupyter notebooks. 
 
+The imagery can be found at TODO. The `config` folder contains names of the images in the test, train, and validation sets. It also contains the yaml file which should be fed to yolov5 so that it trains on the correct data. As detailed in the paper, the train/val data and test data come from different years, representing how this model is to be deployed in the field.
+
 ## Contents
   
 - `planet_images_downloader.ipynb`: Jupyter notebook to download and view imagery from the Planet API.  Must specify .csv of lat/lon pairs.

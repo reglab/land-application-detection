@@ -10,7 +10,7 @@ Our experiments and analysis were run in Google Colab. We provide the relevant c
   
 - `planet_images_downloader.ipynb`: Jupyter notebook to download and view imagery from the Planet API.  Must specify .csv of lat/lon pairs.
 - `yolov5_training_and_inference.ipynb`: We use [YOLOv5 from ultralytics](https://github.com/ultralytics/yolov5). This notebook downloads the latest version and runs training and inference. 
-- `yolov5_stats.ipynb`: Calculate performance statistics (e.g., PR, AUC) for both image classification and even detection. 
+- `yolov5_stats.ipynb`: Calculate performance statistics (e.g., PR, AUC) for both image classification and event detection. 
 - `event_detection.ipynb`: Code to aggregate image-level bounding box predictions into "event" detections, which can span multiple days. 
 
 

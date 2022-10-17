@@ -6,7 +6,7 @@ Near Real Time: Land Application under the Clean Water Act](https://arxiv.org/pd
 
 Our experiments and analysis were run in Google Colab. We provide the relevant code here as jupyter notebooks. 
 
-The imagery can be found at TODO. The `config` folder contains names of the images in the test, train, and validation sets. It also contains the yaml file which should be fed to yolov5 so that it trains on the correct data. As detailed in the paper, the train/val data and test data come from different years, representing how this model is to be deployed in the field.
+The imagery, labels and model weights [can be found here](https://drive.google.com/drive/u/1/folders/0AJqxmVfK4hN5Uk9PVA). The `config` folder contains names of the images in the test, train, and validation sets. It also contains the yaml file which should be fed to yolov5 so that it trains on the correct data. As detailed in the paper, the train/val data and test data come from different years, representing how this model is to be deployed in the field.
 
 ## Contents
   

@@ -1,1 +1,6 @@
 *.ipynb_checkpoints
+elpc_pipeline/logs/
+elpc_pipeline/yolov5/
+elpc_pipeline/secrets.yaml
+.DS_Store
+__pycache__

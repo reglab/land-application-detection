@@ -1,0 +1,129 @@
+###### META-INFO FOR THIS RUN ######
+# An optional descriptive name for this run, to easily fetch relevant rows from the database
+# There is also a unique run_id and timestamp that is auto-generated and stored in the pipeline_runs DB table, which can be used
+# to look up specific runs. That table also has the status of the run, which config params were used, and more.
+run_nickname: ""
+
+# Note: the logging level, along with the path to this config file + secrets file, are fed in as 
+# command-line arguments to the main run_pipeline.py script.
+
+###### PATHS TO EXISTING DATA FILES #######
+
+# Path to CSV file of locations to pull imagery for, with lat and long columns
+locations_filename: "/Users/mihirb/Desktop/cafo_small_subset.csv"
+#some column info for this file
+lat_name: Latitude
+lon_name: Longitude
+
+# Path to shapefiles of cities/towns, and of WDNR fields
+cities_towns_shapefile: "/Users/mihirb/Library/CloudStorage/GoogleDrive-mihirb@law.stanford.edu/Shared drives/high-level-CAFO/WI_geospatial_data/WI_Cities_Towns_Villages"
+wdnr_fields_shapefile: "/Users/mihirb/Library/CloudStorage/GoogleDrive-mihirb@law.stanford.edu/Shared drives/high-level-CAFO/WI_geospatial_data/CAFO_Field_Boundaries"
+
+###### READING/WRITING FILES ######
+
+gcs_bucket: land-app # bucket to save raw planet downloaded imagery to
+gcs_save_path: test_planet_ims/ # path within bucket (folder path) for planet imagery
+root: /Users/mihirb/test_subset # root folder in local filesystem to read/write pre-processed Planet imagery (i.e., tiled images)
+gc_save: false # Whether to save pre-processed image tiles to GCS as well
+local_save: true # If true, then it won't delete locally saved files after pre-processing
+
+replace_tiled_local: skip # choose one of ['ask', 'all', or 'skip'] 
+# This refers to code in the image pre-processing script (tile and filter tiffs). 
+# If a previously tiled image exists locally, for the same location-date, then:
+# 'ask' will ask for user input while the code is running, to confirm whether to overwrite or skip for each one
+# 'all' will assume that everything must be done from scratch, and the previous tiled files must be wiped
+# 'skip' will just skip doing the processing if it sees something exists already in the local filesystem.
+replace_tiled_cloud: skip # choose one of ['ask', 'all', 'skip']
+# Behaves similarly as above, except this is for a check if the tiled image exists in the GCS cloud bucket. If it finds a tiled image in the cloud, then:
+# 'ask' will ask for user input while the code is running for each image, to confirm whether to pull it from the cloud or do the preprocessing from scratch
+# 'all' will do all of the pre-processing from scratch
+# 'skip' will always pull the tile from the cloud 
+
+db_schema: launch_test_elpc # which schema to use in the database (practically used for switching between launch_test_elpc schema and live deployment one)
+
+
+###### DATES AND TIMES FOR PROCESSING ######
+# This defines the imagery date(s) to pull from Planet for the locations in `locations_filename`
+
+# Use yesterday or today's date
+use_yesterday: false
+use_today: false
+# If both above are false, specify a date and time period 
+year: 2023
+month: 3
+day: 5
+n_days: 1
+n_months: 0
+
+###### PLANET IMAGERY PARAMETERS ######
+item_type: PSScene
+asset_type: ortho_visual
+aoi_height: 6000 #in meters (aoi = area of interest, with the location lat-long as the midpoint)
+aoi_width: 6000 #in meters (aoi = area of interest, with the location lat-long as the midpoint)
+#clear_percent: 20
+cloud_percent: 0.2 #images must be less than this percent cloudy
+
+###### IMAGE PROCESSING PARAMETERS #####
+black_thresh: 0.8 # remove images with more than this % of black pixels
+tilesize: 670 # splits larger tiffs from planet into smaller tiffs of this size
+min_tilesize: 300 #minimum size on both axes for split tifs, set to 0 for no min size
+
+###### YOLO MODEL PARAMETERS ######
+weights: /Users/mihirb/Library/CloudStorage/GoogleDrive-mihirb@law.stanford.edu/Shared drives/land-app-public/model_weights/yolov5/best.pt
+class_config: /Users/mihirb/gitclones/land-app/elpc_pipeline/configs/class_info.yaml
+conf_thresh: 0.2 # only detections >= this score are stored + sent to the database 
+# yolo_run_name: # Note: yolo experiment name is now just set automatically as 'exp{run_id}' to make it easier to find
+max_detections: 1000 # maximum detections per image
+iou_thresh: 0.45 # non-max-suppression IOU Threshold. Basically if two detections overlap by more than this %, de-duplicate and only keep the detection with the higher score
+img_size: 640 # square image inference size (height and width)
+
+###### SELECTING EVENTS TO SEND FOR VERIFICATION ######
+postpred_run_id: # specify run id to use for postpred stuff. If blank, will default to using most recent
+
+# How to handle previously-sent detection events
+# (avoid sending the same one within filter_days)
+prev_seen:
+  filter_days: 7
+
+# can either select the top_n events overall or some number by county
+event_selector:
+  # 'top_n': 100
+  #counties:
+  #  Brown: 20
+  #  Grant: 10
+  #  Green: 5
+  #  Kewaunee: 15
+  #  Manitowoc: 5
+  #  Door: 10
+  #  Dane: 5
+  closest_n_per_verifier: 5
+  max_dist: 25
+  exclude_counties: [Calumet, Allegheny, Shawano]
+
+###### GOOGLE DRIVE PARAMETERS ######
+time_format: '%Y%m%d_%H%M%S' # time format to save things to google drive with
+
+google_drive:
+  creds_json: /Users/mihirb/Downloads/divine-outlet-365317-b4f45f2ee1f3.json # path to gdrive service account credentials file
+  parent_id: 1bKfAynMlz5tREhjA2kaj2NSzRpnZClyH # ID of parent folder nder which images are stored (see in URL path on browser)
+  gsheet_key: 14YLV12Q0syU8OhxQsl3o1tMmI5aw6H6fugp4iyTsbko # ID of google sheet of detections for verification (see in URL path after /d/...)
+  round_cols: # how many decimal points to round each column in the gsheet to
+    0: [est_size_acres]
+    4: [score]
+    2: [verifier1_distance, verifier2_distance, verifier3_distance]
+    # 5 decimal points for decimal degrees is ~1m accuracy at the equator
+    5: [lat_center, lon_center]
+
+# Params for verifiers sheet
+verifiers:
+  gsheet_key: 10Ud9_c_JjFZEWdYzt-zP6beGIbpKq6HDcJyIEiMU4ug # sheet id from the URL of the verifiers gsheet
+  gsheet_tab_gid: 0 # tab gid in the URL of the verifiers sheet
+  num_nearest: 3 # number of nearest verifiers to match to / show info for
+  crs_proj: EPSG:3070   # Wisconsin CRS
+  
+###### GOOGLE MAPS IMAGE PARAMETERS ######
+gmaps:
+  map_size: 600
+  zoom_level: 15
+
+

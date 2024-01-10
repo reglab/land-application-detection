@@ -9,7 +9,6 @@ import sys
 from datetime import datetime, date
 import os
 import json
-import uuid
 from google.cloud import storage
 import hashlib
 
@@ -75,12 +74,13 @@ def add_run_to_sql(secrets, config):
     run_id is an auto-increment ID generated in SQL.
     Function also returns the current run_id, which is passed to other SQL-writing functions later in the pipeline
     '''
-    eng, tunnel = writesql.db_connect(secrets)
+    eng, tunnel = writesql.db_connect(secrets) # Note: this db_connect function has logging statements and checks that the connection is working
 
     # Hash the config (to be able to know if the same config was used in the run)
     config_json = json.dumps(config)
     config_hash = hashlib.sha256(config_json.encode())
     config_hash = config_hash.hexdigest()
+    logging.debug(f"Config file hashed as {config_hash}.\nData type of hash = {config_hash.type}")
 
     # Get the relevant date/day info for the run, to also store this separately in columns for easy retrieval
     date_val = date(config['year'], config['month'], config['day'])
@@ -146,7 +146,6 @@ def main(log_filename, log_level, config_filename, secrets_filename):
 
     # Process/load config and secrets files
     config = load_config(config_filename)
-    logging.debug('Loaded config file')
 
     secrets = load_secrets(secrets_filename)
 
@@ -160,6 +159,12 @@ def main(log_filename, log_level, config_filename, secrets_filename):
         client = storage.Client()
         bucket = client.get_bucket(config['gcs_bucket'])    
 
+        # Debug connection by checking some objects in the bucket and seeing if it retrieved okay
+        blobs = bucket.list_blobs()
+        logging.debug(f"Objects in GCS bucket retrieved by connection: {blobs}")
+
+        logging.info("Connected to GCS bucket")
+                    
         # Get year-month-day as a var (used as input to some functions)
         year_month_day = str(config['year']) + '-' + str(config['month']).zfill(2) + '-'+ str(config['day']).zfill(2)
 
@@ -168,17 +173,17 @@ def main(log_filename, log_level, config_filename, secrets_filename):
             logging.error('''Yolov5 package not found in expected location. 
                             Please follow instructions in README to clone Yolov5 repo in the same directory/level as this run_pipeline.py file.''')
         else:
-            logging.info('Yolov5 package found.')
+            logging.info('Yolov5 package found in expected place.')
 
         ##### RUNNING COMPONENTS OF PIPELINE #####
-        #planet.planet_api_pipeline(config, secrets)
-        preprocess.main(bucket, config, year_month_day) 
-        detection.main(config, run_id)
-        writesql.main(config, secrets, run_id)
+        planet.planet_api_pipeline(config, secrets) # Planet imagery downloader
+        preprocess.main(bucket, config, year_month_day) # Image pre-processor to create tiles for model
+        detection.main(config, run_id) # Running model on tiled images
+        writesql.main(config, secrets, run_id) # Writing detections to SQL
 
         # check if different run_id specified for use in postpred
         if config['postpred_run_id'] is not None:
-            postpred.run_elpc(config, secrets, config['postpred_run_id'])
+            postpred.run_elpc(config, secrets, config['postpred_run_id']) # Running event selection/post-prediction, finally writing events to Drive + DB
         else:
             postpred.run_elpc(config, secrets, run_id)
 
@@ -191,7 +196,7 @@ def main(log_filename, log_level, config_filename, secrets_filename):
 
 if __name__ == '__main__':
 
-    # Take in config filename as command line argument
+    # Take in config filepath, secrets filepath, and logging level as command line arguments
     parser = argparse.ArgumentParser()
     try:
         parser.add_argument('--config_file', type=str,

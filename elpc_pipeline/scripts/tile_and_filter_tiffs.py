@@ -449,55 +449,34 @@ def main(bucket, opt, current_folder):
     Handle preprocessing.
     Args:
         bucket: gcs bucket object
-        opt (argparse options): initialization options
+        opt: config file
         current_folder: name of start_date folder for this run
+
+    The final tiled images are stored under {dataset}_{loc_id}
     """
-    # gcloud directory structure like:
-    # - bucket
-    #     - dataset
-    #        - cafo_id
-    #          - start_date
-#                 - planet_request_id
-    #               - item_type
-    #                   - composite.tif
-    #                   - composite_udm.tif
-    #                   - dd_tt_id_b_asset_clip.tif
-    #                   - dd_tt_id_b_asset_udm_clip.tif
-    #                   - dd_tt_id_b_asset_metadata.xml
-    #                   - dd_tt_id_metadata.json
-    #                   - ...
-#                 - tiled_tif
-    #               - tiled_tif_img_1.tif
-    #               - tiled_tif_img_2.tif
-    #               - tiled_tif_img_3.tif
-    #               - ...
-    #             - images
-    #               - img_1.jpeg
-    #               - img_2.jpeg
-    #               - img_3.jpeg
-    #               - ...
 
-    # paths to image blobs are then: {dataset}/{cafo_id}/{start_date}/images/{blah}.{extension}
 
-    print('searching bucket')
+    # paths to image blobs are then: {dataset}/{loc_id}/{start_date}/images/{blah}.{extension}
+
+    logging.info('searching bucket for downloaded images')
     files_gen = bucket.list_blobs(prefix=add_sep(opt['gcs_save_path']))
     split_names = [file.name.split('/') for file in files_gen]
-    print(current_folder)
+    logging.info(f"Looking at folder: {current_folder}")
     split_names = [split_name for split_name in split_names if current_folder in split_name ]
     initial_images = [split_name for split_name in split_names if 'composite.tif' in split_name]
-    print(initial_images)
+    logging.debug(f"Found following images to process: {initial_images}")
 
     # get cafo folders from initial tif image paths (minus the file name)
     order_folder_names = list(set(["/".join(split_name[:-1]) + '/' for split_name in initial_images]))
     dataset_folder_names = ["/".join(name.split('/')[:-2]) + '/' for name in order_folder_names]
-    #print(folder_names)
+
     # main loop
     for i in tqdm(range(len(order_folder_names)), total=len(order_folder_names), desc='processing locations'):
         order_folder = order_folder_names[i]
         dataset_folder = dataset_folder_names[i]
         
         # split initial tiffs into tiled tifs and upload back to cloud if desired
-        print("preprocessing: {}".format(dataset_folder))
+        logging.info("preprocessing: {}".format(dataset_folder))
         
         gc_dir_paths = {}
         gc_dir_paths['cafo_id'] = dataset_folder.split("/")[-3]
@@ -515,19 +494,13 @@ def main(bucket, opt, current_folder):
         local_dir_paths['images'] = os.path.join(opt['root'], dataset_folder, "images")
         local_dir_paths['black_imgs'] = os.path.join(opt['root'], dataset_folder, "black_imgs")
 
-        print(local_dir_paths)
+        logging.debug(f"Local directories for reading/writing: {local_dir_paths}")
         for key, val in local_dir_paths.items():
             if key == 'cafo_id' or key == 'date_id':
                 continue
             
             if not os.path.isdir(val):
                 os.makedirs(val)
-
-        # Check if anything needs to be done
-        #if check_previous_tiled_gcloud(bucket, gc_dir_paths['tiled_tif']) \
-        #    and check_previous_images_gcloud(bucket, gc_dir_paths['images']):
-        #    print('Tiled tif and images for {} exist in the cloud. Skipping.'.format(dataset_folder))
-        #    continue
 
         process_initial_tiffs(bucket, opt, gc_dir_paths, local_dir_paths)
         process_jpgs(bucket, opt, gc_dir_paths, local_dir_paths)

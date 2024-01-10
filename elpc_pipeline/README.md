@@ -1,4 +1,14 @@
+# Winter Spreading Detection Pipeline
+This folder has the code for a pipeline that produces detections  
+
 Detection Pipeline readme
+
+Setup:
+
+About the pipeline, general info and tips:
+- Location ID comes from the original files. So depending on the index, location ID will be set accordingly. For tracking, would recommend keeping that the same.
+- Image outputs are location-
+- Logging + run_ids in database. 
 
 Notes:
 - ```pip install -r requirements.txt```
@@ -15,6 +25,8 @@ pip install -r requirements.txt
 cd ..
 
 ```
+
+Something about sql
 
 For planet imagery, need to prepare gcs key [in this way add](https://developers.planet.com/apis/orders/delivery/#delivery-to-cloud-storage) to secrets
 
@@ -34,8 +46,6 @@ This will run files to:
 4. run yolov5 on tiled tifs
 5. add detections to sql along with locations and other metadata
 6. pull detections and add to google drive and specified local folder (for elpc and wdnr respectively)
-
-The shell script will also activate the correct enviroments along the way.
 
 One set of very important variables in the config are
 use_yesterday and use_today. Only one can be True but both may be False. If you use one, it will automatically update the date to the current day or the previous day.

@@ -22,9 +22,9 @@ from calendar import monthrange
 import logging
 logger = logging.getLogger(__name__)
 
-MAX_ATTEMPTS = 20
+MAX_ATTEMPTS = 20 # max number of times to try requesting Planet API for clip before moving on
+URL = 'https://api.planet.com/compute/ops/orders/v2' # URL for Planet API
 
-URL = 'https://api.planet.com/compute/ops/orders/v2'
 def create_date(year, month, day):
     """Convert given year-month-day into ISO-8601 date representation. 
      E.g., 2015-03-04T00:00:00.000Z is a valid ISO-8601 date representation."""
@@ -63,7 +63,7 @@ def get_end_date(year, start_month, start_day, n_months, num_days):
         end_month = start_month+n_months
     
     if n_days(end_year, end_month) < num_days:
-        warnings.warn('Num days is longer than the month of start_month+n_months, this will result in the month being later than that month.')
+        logging.warn('Num days is longer than the month of start_month+n_months, this will result in the actual retrieved month being later than the specified month.')
 
     end_date = dt.date(end_year, end_month, start_day)+dt.timedelta(days=num_days)
 
@@ -83,16 +83,14 @@ def gen_box_coords(lat, lon, height=2000, width=2000):
     Returns:
         box polygon coordinates
     """
-    deglen = 110.25*1000 # distance of one degree at equator in m
-    lat_height = height/deglen
-    #maybe this adjustment is messing me up 
-    lon_width = width/deglen
-    # lon_width = width/(deglen*np.cos(lat)) #cos of latitude accounts for difference in degree length at different latitudes
+    deglen = 110.25*1000 # distance of one degree at equator in mwrwea
 
+    lat_height = height/deglen
+    lon_width = width/deglen
     w = lon_width / 2
     h = lat_height / 2
 
-    # format is [[ l, b], [r, b], [r, t], [l, t], [l, b]]
+    # format is [[left, bbottom], [right, bottom], [right, top], [left, top], [left, bottom]]
 
     box_coords = [[lon - w, lat - h],
                   [lon + w, lat - h],
@@ -108,27 +106,32 @@ def create_jobs(df, year=2020, start_month=1, start_day=1, n_months=0, n_days = 
               save_path='./', height=2000, width=2000):
     """
     Creates jobs to submit to dataloop. 
-    Takes a series of locations, and a start time, number of months and number of days.
+    Takes a series of locations, date parameters, and other planet imagery params from the config (e.g., area of interest height/width) 
     Returns, a list of jobs that the planet api will accept to search and return the specified data for
     those parameters.
     """
 
+    # Check that data frame has an ID olumn
+    if 'id' not in df.columns:
+       raise IndexError("Locations dataframe should have a column called 'id', which has the desired location ID for each row.")
+    
     jobs = []
 
     for i, location in df.iterrows():
-        loc_dir_name = 'loc_' + str(location.id)
-
-
-       #for j in range(0, n_months):
-        start_date = create_date(year, start_month, start_day)
-        end_date = get_end_date(year, start_month, start_day, n_months, n_days)
-        #end_date = create_date(year, start_month + n_months, start_day + n_days(year, start_month + j)-1)
         
-        lat, lon = location[lat_name], location[lon_name]
-        coords = gen_box_coords(lat, lon, height, width) #should be around 2km x 2km
-
+        # Get location ID - this will be used to create/add to the folder for that location
+        loc_dir_name = 'loc_' + str(location.id)
         directory = os.path.join(save_path, loc_dir_name)
 
+        # Get start and end dates for imagery to look for, in the correct format
+        start_date = create_date(year, start_month, start_day)
+        end_date = get_end_date(year, start_month, start_day, n_months, n_days)
+
+        # Get coordinates for box that will define the area of itnterest to look for imagery
+        lat, lon = location[lat_name], location[lon_name]
+        coords = gen_box_coords(lat, lon, height, width) 
+
+        # Pull it all together in a config for the job to submit to planet
         config = {
             'start_date': start_date,
             'end_date': end_date,
@@ -142,21 +145,20 @@ def create_jobs(df, year=2020, start_month=1, start_day=1, n_months=0, n_days = 
 
         jobs += [config]
 
+    logging.info(f"{len(jobs)} jobs created for Planet")
+    logging.debug(f"Print-out of one of the job configs: {jobs[0]}")
+
     return jobs
 
 def search_api(job, planet_key, cloud_cover=.2):
     """
     Args:
-        coordinates (list): output of gen_box_coords(), a list of lat/lon pairs
-        start_date (string): RFC 3339 date
-        end_date (string): RFC 3339 date
-        item_type (string): either 'PSScene3Band' or 'PSScene4Band'
+        Job config to submit to planet
         cloud_cover (double, 0-1): filter for images at most this cloudy (for use with PSScene3Band imagery)
 
     Returns:
-        A list of item IDs that matched the search filters
+        A list of item IDs in Planet's system that matched the search filters (requested area/bbox, date filter, cloud_cover, etc.)
     """
-    # needs update to handle multiple images
     if len(job['coordinates']) > 1:
         job['coordinates'] = [job['coordinates']]
 
@@ -216,6 +218,7 @@ def search_api(job, planet_key, cloud_cover=.2):
 
     attempts = 0
 
+    # while loop to keep trying to search APi until attempts < MAX_ATTEMPTS
     while attempts < MAX_ATTEMPTS:
         result = \
           requests.post(
@@ -305,7 +308,7 @@ def create_orders(jobs, planet_key, cloud_percent=0.2):
         job_ids = remove_existing(job, job_ids) # remove completed jobs
         order_ids.append(job_ids) 
 
-    print(f'Orders created. ({time.time() - start:0.1f}s)')
+    logging.info(f'Orders created. ({time.time() - start:0.1f}s)')
     return order_ids 
 
 
@@ -328,7 +331,7 @@ def submit_requests(jobs, order_ids, planet_key, composite=True):
       'out_dir': job['out_dir']
     }
 
-  print(f'Submitted {len(jobs)} requests. ({time.time() - start:0.1f}s)')
+  logging.info(f'Submitted {len(jobs)} requests. ({time.time() - start:0.1f}s)')
   return responses 
 
 def submit_requests_GCS(jobs, order_ids, key, bucket, planet_key, composite=True):
@@ -367,8 +370,8 @@ def submit_requests_GCS(jobs, order_ids, key, bucket, planet_key, composite=True
       'clip': clip
     }
 
-  print(f'Submitted {len(jobs)} requests. ({time.time() - start:0.1f}s)')
-  print(responses)
+  logging.info(f'Submitted {len(jobs)} requests. ({time.time() - start:0.1f}s)')
+  logging.debug(f"Responses from the requests: {responses}")
   return responses
 
 def handle_download(jobs, session, planet_key, max_wait_time=256, verbose=True):
@@ -432,7 +435,7 @@ def check_requested(responses):
       # print(f'Order {v["id"]} accepted.')
     else: 
       v['status'] = 'failed'
-      print(f'Failed with code {v["order"].status_code}. \n{v["order"].content}')
+      logging.warning(f'Failed with code {v["order"].status_code}. \n{v["order"].content}')
 
   return responses, rate_limited
 
@@ -590,7 +593,7 @@ def planet_api_pipeline(config_dict, secrets_dict):
   responses = submit_requests_GCS(jobs, order_ids, gcs_key, config_dict['gcs_bucket'], planet_key)
   # Create session
   retry = 0
-  print('waiting for jobs to be finished')
+  logging.info('waiting for jobs to be finished')
   finished = False
   while not finished:
 
@@ -601,7 +604,7 @@ def planet_api_pipeline(config_dict, secrets_dict):
         wait +=1
     #we wait at least 5 minutes before checking to see if things are finished
     waittime = (60*5 + min(60*retry, 300))
-    print('pausing for ', waittime, ' seconds')
+    logging.info('pausing for ', waittime, ' seconds')
     #wait for a set time for each job plus some amount of time to stop timeouts when the number'
     # of jobs goes down 
     time.sleep(waittime)
@@ -622,7 +625,7 @@ def planet_api_pipeline(config_dict, secrets_dict):
     session = requests.Session()
     session.auth = (planet_key, '')
     responses, rl = check_accepted(responses, session)
-    print(status_counter(responses))
+    logging.info(status_counter(responses))
     retry += 1
     finished = all_jobs_finished(responses)
   # responses, rl = download_successes(responses, session)

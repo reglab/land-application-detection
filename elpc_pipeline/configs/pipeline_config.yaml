@@ -60,8 +60,7 @@ item_type: PSScene
 asset_type: ortho_visual
 aoi_height: 6000 #in meters (aoi = area of interest, with the location lat-long as the midpoint)
 aoi_width: 6000 #in meters (aoi = area of interest, with the location lat-long as the midpoint)
-#clear_percent: 20
-cloud_percent: 0.2 #images must be less than this percent cloudy
+cloud_percent: 0.2 #images must be less than this proportion cloudy (0.2 means 20% of image is covered)
 
 ###### IMAGE PROCESSING PARAMETERS #####
 black_thresh: 0.8 # remove images with more than this % of black pixels

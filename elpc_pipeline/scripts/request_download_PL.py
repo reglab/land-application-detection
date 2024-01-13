@@ -314,7 +314,7 @@ def submit_requests(jobs, order_ids, planet_key, composite=True):
   responses = {}
   start = time.time()
   desc = 'submitting jobs'
-  for i, (job, ids) in tqdm(enumerate(zip(jobs, order_ids)), desc=desc):
+  for i, (job, ids) in tqdm(enumerate(zip(jobs, order_ids)),total=len(jobs), desc=desc):
 
     clip = create_clip(job, ids, composite)
     response_order = requests.post(
@@ -354,7 +354,7 @@ def submit_requests_GCS(jobs, order_ids, key, bucket, planet_key, composite=True
           "credentials": key,
           "path_prefix": job['out_dir']
       }
-  }
+    }
     response_order = requests.post(
         URL,
         auth=HTTPBasicAuth(planet_key, ''),
@@ -371,7 +371,7 @@ def submit_requests_GCS(jobs, order_ids, key, bucket, planet_key, composite=True
   print(responses)
   return responses
 
-def handle_download(jobs, session, planet_key, max_wait_time=256, verbose=True):
+def handle_download(jobs, planet_key, max_wait_time=256, verbose=True):
     """In theory, call this on the list of jobs to download them all. This 
     should call the appropriate functions with the appropriate wait times, 
     backing off expoenentially if the server is receiving too many requests. 
@@ -395,8 +395,8 @@ def handle_download(jobs, session, planet_key, max_wait_time=256, verbose=True):
         if wait_time < max_wait_time:
             wait_time *= 2
     responses, rl1 = check_requested(responses)
-    responses, rl2 = check_accepted(responses, session)
-    responses, rl3 = download_successes(responses, session)
+    responses, rl2 = check_accepted(responses, planet_key)
+    responses, rl3 = download_successes(responses, planet_key)
     rate_limited = rl1 or rl2 or rl3
     if verbose: 
         print(status_counter(responses))
@@ -436,12 +436,13 @@ def check_requested(responses):
 
   return responses, rate_limited
 
-def check_all_running(responses, session): 
+def check_all_running(responses, planet_key): 
   """Returns true iff all responses are in 'running' state"""
 
   for v in responses.values():
-    r = session.get(
-        os.path.join('https://api.planet.com/compute/ops/orders/v2', f'{v["id"]}')
+    r = requests.get(
+        os.path.join('https://api.planet.com/compute/ops/orders/v2', f'{v["id"]}'),
+        auth=HTTPBasicAuth(planet_key, ''),
     )
     if r.json()['state'] != 'running':
       return False 
@@ -461,7 +462,7 @@ def extract_json_results(json_content):
 
 
 
-def check_accepted(responses, session):
+def check_accepted(responses, planet_key):
   """Check all responses with `accepted' status. Update to success 
   if warranted"""
 
@@ -470,8 +471,9 @@ def check_accepted(responses, session):
     if v['status'] != 'accepted': 
         continue 
 
-    r = session.get(
-        os.path.join('https://api.planet.com/compute/ops/orders/v2', f'{v["id"]}')
+    r = requests.get(
+        os.path.join('https://api.planet.com/compute/ops/orders/v2', f'{v["id"]}'),
+        auth=HTTPBasicAuth(planet_key, '')
     )
     try: 
         if r.status_code == 429:
@@ -493,7 +495,7 @@ def check_accepted(responses, session):
 def all_jobs_finished(responses):
   """return true iff all jobs are finished by Planet"""
   for v in responses.values():
-    if not v['status'] == 'success' or v['status'] == 'failed':
+    if not (v['status'] == 'success' or v['status'] == 'failed'):
       return False 
   return True
 
@@ -518,7 +520,7 @@ def all_results_downloaded(results, dir):
   return True
   
 
-def download_successes(responses, session):
+def download_successes(responses, planet_key):
   """Download the responses with status `success'
   """
   rate_limited = False
@@ -540,8 +542,9 @@ def download_successes(responses, session):
         params = (
           ('token', token),
         )
-        download_response = session.get(
+        download_response = requests.get(
           'https://api.planet.com/compute/ops/download/', 
+          auth=HTTPBasicAuth(planet_key, ''),
           params=params, stream=True
         )
         info_dict['response'] = download_response
@@ -588,24 +591,18 @@ def planet_api_pipeline(config_dict, secrets_dict):
 
   order_ids = create_orders(jobs, planet_key, cloud_percent=config_dict['cloud_percent'])
   responses = submit_requests_GCS(jobs, order_ids, gcs_key, config_dict['gcs_bucket'], planet_key)
-  # Create session
+  
   retry = 0
   print('waiting for jobs to be finished')
   finished = False
   while not finished:
-
-    responses, ratelimited = check_requested(responses)
-    wait = 0
-    for v in responses.values():
-      if v['status'] == 'accepted': 
-        wait +=1
-    #we wait at least 5 minutes before checking to see if things are finished
-    waittime = (60*5 + min(60*retry, 300))
+    #we wait 5 minutes before checking to see if things are finished
+    waittime = (60*5)
     print('pausing for ', waittime, ' seconds')
     #wait for a set time for each job plus some amount of time to stop timeouts when the number'
     # of jobs goes down 
     time.sleep(waittime)
-
+    responses, ratelimited = check_requested(responses)
     if ratelimited:
       for k in responses:
         r = responses[k]
@@ -618,12 +615,9 @@ def planet_api_pipeline(config_dict, secrets_dict):
           r['order'] = response_order
           responses[k] = r
     
-    #remake session each retry cycle to make sure we dont timeout
-    session = requests.Session()
-    session.auth = (planet_key, '')
-    responses, rl = check_accepted(responses, session)
+    responses, rl = check_accepted(responses, planet_key)
     print(status_counter(responses))
     retry += 1
     finished = all_jobs_finished(responses)
-  # responses, rl = download_successes(responses, session)
+  # responses, rl = download_successes(responses, planet_key)
   # print(status_counter(responses))

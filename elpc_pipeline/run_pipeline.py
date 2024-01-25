@@ -80,7 +80,7 @@ def add_run_to_sql(secrets, config):
     config_json = json.dumps(config)
     config_hash = hashlib.sha256(config_json.encode())
     config_hash = config_hash.hexdigest()
-    logging.debug(f"Config file hashed as {config_hash}.\nData type of hash = {config_hash.type}")
+    logging.debug(f"Config file hashed as {config_hash}.\nData type of hash = {type(config_hash)}")
 
     # Get the relevant date/day info for the run, to also store this separately in columns for easy retrieval
     date_val = date(config['year'], config['month'], config['day'])

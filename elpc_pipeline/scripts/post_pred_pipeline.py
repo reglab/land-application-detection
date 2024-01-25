@@ -9,7 +9,7 @@ import ohio.ext.pandas
 import sshtunnel
 import geopandas as gpd
 
-from add_predictions_to_sql import db_connect
+from .add_predictions_to_sql import db_connect
 
 import google_drive_utils as gd
 import matplotlib.pyplot as plt
@@ -321,7 +321,7 @@ def save_to_drive(config, secrets, conn, drive, selected_events):
         if r.status_code == 200:
             sat_map = Image.open(BytesIO(r.content))
             ax[1].imshow(sat_map)
-            logging.trace(f"Google maps satellite image successfully retrieved for {location_id} event.")
+            logging.debug(f"Google maps satellite image successfully retrieved for {location_id} event.")
         else:
             logging.warn(f"Google Maps satellite image API request didn't work for event: {location_id}")
 
@@ -329,7 +329,7 @@ def save_to_drive(config, secrets, conn, drive, selected_events):
         if r.status_code == 200:
             road_map = Image.open(BytesIO(r.content))
             ax[2].imshow(road_map)
-            logging.trace(f"Google maps road image successfully retrieved for {location_id} event.")
+            logging.debug(f"Google maps road image successfully retrieved for {location_id} event.")
         else:
             logging.warn(f"Google Maps road image API request didn't work for event: {location_id}")
 
@@ -340,7 +340,7 @@ def save_to_drive(config, secrets, conn, drive, selected_events):
 
         # note: open up link sharing to allow for embedding via mail merge without google login
         img_id = gd.upload_from_file(drive, new_loc, parent_folder_id=img_folder_id, public_viewable=True)['id'] # alternateLink
-        logging.trace(f"Image succesfully uploaded for devent: {location_id}")
+        logging.debug(f"Image succesfully uploaded for devent: {location_id}")
         selected_events.loc[ev_ix, 'gdrive_image_url'] = gd.image_embed_url(img_id)
         selected_events.loc[ev_ix, 'location_id'] = location_id
         os.system(f'rm "{new_loc}"')

@@ -17,7 +17,7 @@ lon_name: Longitude
 
 # Path to shapefiles of cities/towns, and of WDNR fields
 cities_towns_shapefile: "/home/elpcphatami/WI_Cities_Towns_Villages"
-wdnr_fields_shapefile: "/home/elpcphatami/CAFO_Field_Boundaries"
+wdnr_fields_shapefile: "/home/elpcphatami/CAFO_Field_Boundaries/CAFO_Field_Boundaries"
 
 ###### READING/WRITING FILES ######
 
@@ -49,9 +49,9 @@ db_schema: launch_test_elpc # which schema to use in the database (practically u
 use_yesterday: false
 use_today: false
 # If both above are false, specify a date and time period 
-year: 2023
-month: 2
-day: 5
+year: 2024
+month: 1
+day: 18
 n_days: 1
 n_months: 0
 
@@ -68,7 +68,7 @@ tilesize: 670 # splits larger tiffs from planet into smaller tiffs of this size
 min_tilesize: 300 #minimum size on both axes for split tifs, set to 0 for no min size
 
 ###### YOLO MODEL PARAMETERS ######
-weights: /home/elpcphatami/best.pt
+weights: /home/elpcphatami/new_weights.pt
 class_config: /home/elpcphatami/land-application-detection/elpc_pipeline/configs/class_info.yaml
 conf_thresh: 0.2 # only detections >= this score are stored + sent to the database 
 # yolo_run_name: # Note: yolo experiment name is now just set automatically as 'exp{run_id}' to make it easier to find
@@ -97,7 +97,8 @@ event_selector:
   #  Dane: 5
   closest_n_per_verifier: 5
   max_dist: 25
-  exclude_counties: [Calumet, Allegheny, Shawano]
+  exclude_counties: []
+  # exclude_counties: [Calumet, Allegheny, Shawano]
 
 ###### GOOGLE DRIVE PARAMETERS ######
 time_format: '%Y%m%d_%H%M%S' # time format to save things to google drive with

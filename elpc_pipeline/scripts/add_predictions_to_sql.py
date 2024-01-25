@@ -1,7 +1,8 @@
 import os, sys
 import datetime as dt
 import argparse
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 import pandas as pd
 import yaml
 import ohio.ext.pandas
@@ -55,23 +56,42 @@ def db_connect(secrets):
                     ssh_port = db_params['ssh_port']
                 )
         tunnel.start()
-        conn = create_engine("postgresql+psycopg2://{sql_user}:{sql_pass}@0.0.0.0:{local_port}/{dbname}?sslmode=allow".format(
+        eng = create_engine("postgresql+psycopg2://{sql_user}:{sql_pass}@0.0.0.0:{local_port}/{dbname}?sslmode=allow".format(
                 sql_user=db_params['user'],
                 sql_pass=db_params['pass'],
                 local_port=db_params['local_port'],
                 dbname=db_params['dbname']
             ))
+        # Testing out db connection
+        try:
+            with eng.connect() as conn:
+                result = conn.execute(text("select * from information_schema.tables limit 10;"))
+                if result.rowcount > 0:
+                    logging.debug("Database connection successful.")
+                else:
+                    logging.error("Database connected but no data retrieved. Check the database structure and connection")
+        except SQLAlchemyError as err:
+            logging.error("Error in connecting to database, because of the following cause: ", err.__cause__)
     else:
         tunnel = None
-        conn = create_engine('postgresql://{user}:{password}@{host}:{port}/{dbname}'.format(
+        eng = create_engine('postgresql://{user}:{password}@{host}:{port}/{dbname}'.format(
                 host=db_params['host'],
                 port=db_params['port'],
                 dbname=db_params['dbname'],
                 user=db_params['user'],
                 password=db_params['pass']
             ))
+        try:
+            with eng.connect() as conn:
+                result = conn.execute(text("select * from information_schema.tables limit 10;"))
+                if result.rowcount > 0:
+                    logging.debug("Database connection successful.")
+                else:
+                    logging.error("Database connected but no data retrieved. Check the database structure and connection")
+        except SQLAlchemyError as err:
+            logging.error("Error in connecting to database, because of the following cause: ", err.__cause__)
     
-    return conn, tunnel
+    return eng, tunnel
 
 
 def main(config, secrets, run_id):
@@ -79,14 +99,20 @@ def main(config, secrets, run_id):
     loc_names = [f for f in os.listdir(os.path.join(config['root'], config['gcs_save_path'])) if 'loc_' in f]
     cities_gdf = gpd.read_file(config['cities_towns_shapefile'])
     cities_gdf = cities_gdf.to_crs('EPSG:4326')
+    logging.info(f"Read cities/towns shapefile, with {len(cities_gdf)} rows")
+    logging.debug(f"Head of cities DF: \n{cities_gdf.head()}")
     
     fields_gdf = gpd.read_file(config['wdnr_fields_shapefile'])
     fields_gdf = fields_gdf.to_crs('EPSG:4326')
+    logging.info(f"Read fields shapefile, with {len(fields_gdf)} rows")
+    logging.debug(f"Head of fields DF: \n{cities_gdf.head()}")
+
     detections = []
     for loc in tqdm(loc_names):
         results_path = os.path.join(config['root'], config['gcs_save_path'], loc, year_month_day, 'labels')    
         images_path = os.path.join(config['root'], config['gcs_save_path'], loc, year_month_day, 'images')
         if not os.path.exists(images_path) or len([x for x in os.listdir(images_path) if '.jpeg' in x]) == 0:
+            logging.warn(f"No images with detections exist for location ID {loc}")
             continue
         image_coordinates = pd.read_csv(os.path.join(images_path, 'coordinates.csv'))
         labels_files = [txt for txt in os.listdir(os.path.join(results_path, f"exp{run_id}", 'labels')) if '.txt' in txt]
@@ -103,8 +129,7 @@ def main(config, secrets, run_id):
                     arr = l.split(' ')
                     plbl = [float(x) for x in arr[1:-1]] #x_center,y_center,w,h
                     conf = float(arr[-1]) 
-                    # this isn't exactly right but its close enough I think
-                    #images are upper right anchored
+
                     lat_center = coords['lat_max'] - (coords['lat_max'] - coords['lat_min'])*plbl[1] 
                     lon_center = coords['lon_min'] + (coords['lon_max'] - coords['lon_min'])*plbl[0]
                     lat_height = (coords['lat_max'] - coords['lat_min'])*plbl[3]
@@ -135,7 +160,7 @@ def main(config, secrets, run_id):
                         field_name = None,
                     else:
                         if field_df.shape[0] > 1:
-                            warnings.warn('Detection matches more than one field')
+                            logging.warn('Detection matches more than one field')
                             field_df = field_df.sample(frac=1.0)
                         farm_name = field_df['FARM_NAME'].iloc[0]
                         field_name = field_df['FIELD_NAME'].iloc[0]
@@ -166,6 +191,7 @@ def main(config, secrets, run_id):
 
     
     df = pd.concat(detections, ignore_index=True)
+    logging.debug(f"Head of events df to write to database: \n{df.head()}")
 
     try:
         conn, tunnel = db_connect(secrets)
@@ -175,6 +201,7 @@ def main(config, secrets, run_id):
                         schema=config['db_schema'], 
                         index=False, 
                         if_exists='append')
+        logging.info(f"Wrote info for {len(df)} detections to the database.")
     finally:
         conn.dispose()
         if tunnel:

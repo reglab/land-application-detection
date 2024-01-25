@@ -13,5 +13,3 @@ tqdm==4.66.1
 google-api-python-client==1.12.10
 google-cloud-storage==2.6.0
 matplotlib==3.6.2
-uuid==1.30
-#google-auth==2.23.4

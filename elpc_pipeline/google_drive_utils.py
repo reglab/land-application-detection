@@ -1,22 +1,24 @@
-import os
+'''
+Utils for interacting with Google Drive 
 
+- Assumes connecting via a service account rather than user auth via web
+
+Currently the connaction is done using oauth2client, which is deprecated. It works, but
+may need to be replaced with google-auth. One attempt was made at this, but was not successful.
+
+TODOs:
+- Add a retry decorator that can automatically reconnect if timeout occurs
+- Add support for shared/team drives:  https://stackoverflow.com/a/57577212
+
+'''
+
+import os
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 from oauth2client.service_account import ServiceAccountCredentials
-
 import gspread
 from gspread_dataframe import get_as_dataframe, set_with_dataframe
 
-# maybe turn into a class with a memory of working directory, etc.?
-# might also be good to add a retry decorator that can automatically reconnect if timeout has occurred
-
-# TODO: Add support for shared/team drives (see: https://stackoverflow.com/a/57577212)
-
-# TODO: read me in as CLI argument
-CREDS_JSON = 'divine-outlet-365317-b4f45f2ee1f3.json'
-
-# NOTE: Assumes connecting via a service account rather than user auth via web
-# seemed to hit auth timeout might need to deal with?
 def connect(service_acct_json):
     gauth = GoogleAuth()
     scope = ["https://www.googleapis.com/auth/drive"]
@@ -96,7 +98,7 @@ def append_to_gsheet(service_acct_json, new_df, sheet_key, tab=0, check_header=F
     curr_rows = df.shape[0]
 
     if check_header:
-        # additional columns beyond the new data are ok, but initial column names must all match
+        # additional columns beyond the new data are ok, but initial column names must all match with expected format
         new_cols = list(new_df.columns)
         sheet_cols = list(df.columns)
         if not sheet_cols[:len(new_cols)] == new_cols:

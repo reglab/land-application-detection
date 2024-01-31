@@ -1,18 +1,13 @@
 # Winter Spreading Detection Pipeline
-This folder has the code for a pipeline that produces detections  
+This folder has the code for a pipeline that detects likely winter manure spreading events using satellite imagery and a trained/tuned [Yolov5](https://github.com/ultralytics/yolov5) object detection model. 
 
-Detection Pipeline readme
+## Running code using the pipeline
 
-Setup:
-
-About the pipeline, general info and tips:
-- Location ID comes from the original files. So depending on the index, location ID will be set accordingly. For tracking, would recommend keeping that the same.
-- Image outputs are location-
-- Logging + run_ids in database. 
-
-Notes:
+### One-time setup
+1. Clone this repository on the server/computer where you want to be running code. The instructions below assume a Linux/Ubuntu server.
+2. Set up a Python virtual environment: ```python -m venv venv```
+3. Activate the environment: ```source venv/bin/activate```
 - ```pip install -r requirements.txt```
-- Run command: ```python3 run_pipeline.py --config_file configs/pipeline_config.yaml --secrets_file secrets.yaml --log_level 10 ```
 
 pre-requisite: 
 - 'gcloud auth login'
@@ -26,9 +21,31 @@ cd ..
 
 ```
 
+For planet imagery, need to prepare gcs key [in this way add](https://developers.planet.com/apis/orders/delivery/#delivery-to-cloud-storage) to secrets
+
+
+#### Regular running
+- Run command: ```python3 run_pipeline.py --config_file configs/pipeline_config.yaml --secrets_file secrets.yaml --log_level 10 ```
+
+
+
+### Code structure/organization 
+
+Add image of pipeline runner.
+
+### Important things to note aboout the pipeline
+- Location ID comes from the original files. So depending on the index, location ID will be set accordingly. For tracking, would recommend keeping that the same.
+
+### Debugging and other usage tips
+- Image outputs are location-
+- Logging + run_ids in database. 
+
+
+## Background about the model and training
+
+
 Something about sql
 
-For planet imagery, need to prepare gcs key [in this way add](https://developers.planet.com/apis/orders/delivery/#delivery-to-cloud-storage) to secrets
 
 ## Add section on debugging tips
 

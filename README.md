@@ -1,20 +1,12 @@
 # Land Application Detection
 
-Code for the Paper [Detecting Environmental Violations with Satellite Imagery in
-Near Real Time: Land Application under the Clean Water Act](https://arxiv.org/pdf/2208.08919.pdf), in Conference of Information and Knowledge Management (CIKM), 2022. 
+This repository contains code for a project trying to detect environmental violations in real-time using satellite imagery. Specifically, we detect instances of winter land application, the practice of farms spreading manure on snow-covered fields. 
 
+## Repo organization
 
-Our experiments and analysis were run in Google Colab. We provide the relevant code here as jupyter notebooks. 
+- `cikm`: contains code and artifacts for the paper [Detecting Environmental Violations with Satellite Imagery in
+Near Real Time: Land Application under the Clean Water Act](https://arxiv.org/pdf/2208.08919.pdf), in Conference of Information and Knowledge Management (CIKM), 2022. This paper and code describes the training, tuning and analysis of the object-detection model. 
 
-[The imagery, labels and model weights can be found here](https://www.dropbox.com/sh/8g7j6gu4rattylr/AABn5O-xuy9JUY0cAO6b1NCya?dl=0). The `training` folder also contains text files with the names of the images in the test, train, and validation sets. It also contains the yaml file which should be fed to yolov5 so that it trains on the correct data. As detailed in the paper, the train/val data and test data come from different years, representing how this model is to be deployed in the field.
+- `elpc_pipeline`: contains code and details for a pipeline to run the object detection model output results of suspected land application events for a given set of locations and images. This is the pipeline deployed in the winter 2022 field trial with ELPC and WDNR, using the best model from the CIKM paper. It is also a currently functional pipeline that continues to be used by ELPC as they take on an additional piloting and testing of the model in winter 2023.
 
-## Contents
-  
-- `planet_images_downloader.ipynb`: Jupyter notebook to download and view imagery from the Planet API.  Must specify .csv of lat/lon pairs.
-- `yolov5_training_and_inference.ipynb`: We use [YOLOv5 from ultralytics](https://github.com/ultralytics/yolov5). This notebook downloads the latest version and runs training and inference. 
-- `yolov5_stats.ipynb`: Calculate performance statistics (e.g., PR, AUC) for both image classification and event detection. 
-- `event_detection.ipynb`: Code to aggregate image-level bounding box predictions into "event" detections, which can span multiple days. 
-- `faster_rcnn_inference.ipynb`: Code to load Faster-RCNN model and run inference on the test set
-- `SingleCNN_model_inference.ipynb`: Code to run our single Xception model and run inference on the test set for image classification.
-- `DualCNN_infrence.ipynb`: Code to run our two input image Xception model and run inference on the test set for image classification.
-
+- `field_trial_2022_analysis.ipynb`: a Jupyter notebook containing analysis from the winter 2022 field trial with ELPC and WDNR. Draws data from the postgreSQL database in which the results sit.  

@@ -9,4 +9,4 @@ Near Real Time: Land Application under the Clean Water Act](https://arxiv.org/pd
 
 - `elpc_pipeline`: contains code and details for a pipeline to run the object detection model and output results of suspected land application events for a given set of locations. This is the pipeline deployed in the winter 2022 field trial with Environmental Law and Policy Center (ELPC) and Wisconsin Department of Natural Resources (WDNR), using the best model from the CIKM paper. It is also a currently functional pipeline that continues to be used by ELPC as they take on an additional piloting and testing of the model in winter 2023.
 
-- `field_trial_2022_analysis.ipynb`: a Jupyter notebook containing analysis from the winter 2022 field trial with ELPC and WDNR. Draws data from the postgreSQL database in which the results sit.  
+- `field_trial_2022_analysis.ipynb`: a Jupyter notebook containing analysis from the winter 2022 field trial with ELPC and WDNR. The data used in this analysis has been published to an open [Hugging Face repository here](https://huggingface.co/datasets/reglab/land-app-trial).
